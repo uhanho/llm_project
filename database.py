@@ -27,7 +27,7 @@ class Database:
     def __init__(self):
         warnings.filterwarnings("ignore")
         load_dotenv()
-        
+
         username=os.environ["DB_USER"]
         password=os.environ["DB_PASSWORD"]
         dsn=os.environ["DSN"]
@@ -36,14 +36,28 @@ class Database:
         self.embeddings = UpstageEmbeddings(model="solar-embedding-1-large")
         print("Connection successful!")
     
-    def make_docs_from_pdf(self):
-        file_path = "./oracle-database-23ai-new-features-guide.pdf"
-        layzer = UpstageLayoutAnalysisLoader(file_path, split="page")
+    def make_docs_from_pdf(self, file_path = "./sample_docs.txt"):
+        layzer = UpstageLayoutAnalysisLoader(file_path)
         docs = layzer.load()
-        text_splitter = RecursiveCharacterTextSplitter.from_language(
-            chunk_size=1500, chunk_overlap=200, language=Language.HTML
+        text_splitter = RecursiveCharacterTextSplitter.from_documents(
+            docs,
+            self.embeddings,
+            client=self.con, 
+            table_name="text_embeddings2", 
+            distance_strategy=DistanceStrategy.DOT_PRODUCT
         )
-        return text_splitter.split_documents(docs)
+        return text_splitter
+    
+    def make_docs_from_path(self, file_path = "./sample_docs.txt"):
+        with open (file_path, 'rt') as myfile:
+            contents = myfile.read()
+        docs = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=400).create_documents([contents])
+        return docs
+    
+    def make_docs_from_list(self, contents):
+        docs = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=400).create_documents(contents)
+        return docs
+
 
     def load_embedding(self, docs = "", table_name = "text_embeddings"):
         self.knowledge_base = OracleVS.from_documents(docs, self.embeddings, client=self.con, 
@@ -58,7 +72,7 @@ class Database:
     
     def get_chunks(self, question):
         vector_store = self.vector_store
-        result_chunks=vector_store.similarity_search(query = question, k = 10)
+        result_chunks=vector_store.similarity_search(query = question, k = 3)
         return result_chunks
 
     def get_retriever(self):
@@ -79,13 +93,14 @@ class Database:
 
 if __name__ == "__main__":
     database = Database()
-    # docs = database.make_docs_from_pdf()
-    # database.load_embedding(docs)
+    table_name = "sample_docs2"
+    # docs = database.make_docs_from_path("./sample_docs.txt")
+    # database.load_embedding(docs, table_name)
 
-    database.set_vector_store()
+    database.set_vector_store(table_name)
 
-    question = "강릉"
+    question = "부산에 가면"
     result_chunks = database.get_chunks(question)
-    database.create_index()
+    
     print(result_chunks)
 
