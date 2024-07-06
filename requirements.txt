@@ -1,2 +1,10 @@
 streamlit
 openai
+
+
+
+python-dotenv
+pandas
+matplotlib
+requests
+playwright
