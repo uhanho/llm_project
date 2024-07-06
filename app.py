@@ -2,17 +2,11 @@ import streamlit as st
 from datetime import datetime
 import time
 import pandas as pd
+import prompt
 
 class UserApp():
     def __init__(self):
         self.title = "여행 플래너 ✈️"
-        
-        self.plan = [
-            ('2024-08-01 (Day 1: 출발 및 부산 도착)', [('9:00 AM', '김해 국제공항'), ('10:00 AM', '해운대 해수욕장'), ('12:00 PM', '광안리 해수욕장'), ('2:00 PM', '자갈치 시장'), ('4:00 PM', '태종대'), ('6:00 PM', '부산 타워')]),
-            ('2024-08-02 (Day 2: 아침 관광)', [('9:00 AM', '부산 송도 해수욕장'), ('11:00 AM', '감천 문화마을'), ('1:00 PM', '점심 식사'), ('3:00 PM', '국제 시장'), ('5:00 PM', '용두산 공원'), ('7:00 PM', '저녁 식사')]),
-            ('2024-08-03 (Day 3: 오후 관광)', [('10:00 AM', '해동 용궁사'), ('12:00 PM', '점심 식사'), ('2:00 PM', '송정 해수욕장'), ('4:00 PM', '해운대 엘시티'), ('6:00 PM', '저녁 식사')]),
-            ('2024-08-04 (Day 4: 출발)', [('9:00 AM', '김해 국제 공항'), ('10:00 AM', '서울로 출발')])
-        ]
     
     def initialize_screen(self):
         st.set_page_config(page_title="여행 플래너", page_icon="✈️")
@@ -45,7 +39,7 @@ class UserApp():
             if dest and depart and num_people and start_date and end_date and pers_info:
                 if st.form_submit_button("제출"):
                     self.show_progress_bar()
-                    self.display_results()
+                    self.display_results(dest, depart, num_people, start_date, end_date, pers_info)
             else:
                 st.form_submit_button("제출", disabled=False)
     
@@ -59,11 +53,13 @@ class UserApp():
         time.sleep(1)
         my_bar.empty()
     
-    def display_results(self):
+    def display_results(self, dest, depart, num_people, start_date, end_date, pers_info):
         # Create a list of dictionaries to store the plan data in a structured format
+        schedule = prompt.prompt_create(dest, depart, num_people, start_date, end_date, pers_info)
+        
         plan_data = []
         is_date = set()
-        for day_plan in self.plan:
+        for day_plan in schedule:
             date, activities = day_plan
             for time, activity in activities:
                 if date not in is_date:
