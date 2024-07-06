@@ -9,8 +9,8 @@ import urllib.parse
 import pandas as pd
 import json
 from datetime import datetime
-import asyncio
-from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
+
 class naver:
     def __init__(self, searchingkey = None):
         load_dotenv()
@@ -22,6 +22,7 @@ class naver:
         self.searchingkey = searchingkey
         self.blogdatalist = []
         self.localdatalist = []
+        self.DEBUG = False 
     
     def _request_api(self,start = 1, area = 'blog'):
         """ naver api를 통해 검색 결과를 가져옵니다.
@@ -36,6 +37,8 @@ class naver:
         self.start = start
         if area not in ['blog','local']:
             return 600
+        if self.searchingkey == None:
+            raise ValueError("검색어를 설정하세요")
         encText = urllib.parse.quote(self.searchingkey)
         url = f"https://openapi.naver.com/v1/search/{area}.json?query={encText}&display={self.display}&start={self.start}&sort={self.sort}"
         request = urllib.request.Request(url)
@@ -47,6 +50,15 @@ class naver:
         result = json.loads(readresponse)
         return result
     
+    def _get_text(self,datalist):
+        crawler = blogCrawler()
+        for item in datalist:
+            tt=crawler.get_text(item['link'])
+            print(tt)
+            if tt != None:
+                item['description'] = tt
+        return
+
     def _get_result_blog(self, page = 1):
         """ 블로그 검색 결과를 가져옵니다.
 
@@ -58,7 +70,11 @@ class naver:
         """
         self.sort = 'sim'
         selected_keys = ['link', 'title', 'postdate','description'] # 결과에서 들고 올 항목입니다.
-        while page <= 1000:                                         # page는 최대 값이 1000입니다.
+        if self.DEBUG:
+            max_res = 150
+        else:
+            max_res = 350
+        while page <= max_res:                                      # page는 최대 값이 1000입니다.
             result = self._request_api(page, 'blog')                # 현재 페이지 기준 blog 검색 결과를 들고 옵니다.
             for item in result['items']:                            # 모든 아이템을 들고옵니다.                   
                 selected_data = {key: item[key] for key in selected_keys} # 들고올 항목들만 아이템에서 들고옵니다.
@@ -79,8 +95,12 @@ class naver:
         """
         self.sort = 'random'
         selected_keys = ['link', 'title', 'category','address','description','mapx','mapy'] # 결과에서 들고 올 항목입니다.
-        while page <= 1000:                                         # page는 최대 값이 1000입니다.
-            result = self._request_api(page, 'local')                # 현재 페이지 기준 blog 검색 결과를 들고 옵니다.
+        if self.DEBUG:
+            max_res = 150
+        else:
+            max_res = 350
+        while page <= max_res:                                      # page는 최대 값이 1000입니다.
+            result = self._request_api(page, 'local')               # 현재 페이지 기준 blog 검색 결과를 들고 옵니다.
             for item in result['items']:                            # 모든 아이템을 들고옵니다.                   
                 selected_data = {key: item[key] for key in selected_keys} # 들고올 항목들만 아이템에서 들고옵니다.
                 self.localdatalist.append(selected_data)             # datalist에 추가합니다.
@@ -96,36 +116,44 @@ class naver:
     def get_searchingkey(self):
         return self.searchingkey
     
-
-    async def _extract_p_tags(self, url):
-        """Playwright를 사용하여 주어진 URL에서 p 태그 텍스트를 추출합니다."""
-        async with async_playwright() as p:
-            browser = await p.chromium.launch()
-            page = await browser.new_page()
-            await page.goto(url)
-
-            p_tags = await page.query_selector_all('p')
-            p_texts = [await p.text_content() for p in p_tags]
-
-            await browser.close()
-            return p_texts
+class blogCrawler:
+    def __init__(self, searchingkey = None):
+        pass
 
     def get_text(self,url):
         """검색 결과 링크에서 p 태그 텍스트를 추출합니다."""
-        # blog_data = self._get_result_blog()
-        all_p_tags = []
-        # for data in blog_data:
-            # link = data['link']
+
         if 'blog.naver.com' in url:
-            pass
-        elif 'tistory' in url:
             link = url
-            p_tags = asyncio.run(self._extract_p_tags(link))
-            all_p_tags.extend(p_tags)
-        else:
-            link = url
-            p_tags = asyncio.run(self._extract_p_tags(link))
-            if p_tags:
-                all_p_tags.extend(p_tags)
-        return all_p_tags
+            return self.get_blog_text(link)
+
+    def del_tag(self, text):
+        """텍스트에서 HTML 태그 제거"""
+        clean_text = []
+        for i in text:
+            i = str(i)
+            while i.find('<') != -1:
+                start = i.find('<')
+                end = i.find('>')
+                i = i[:start] + i[end + 1:]
+            clean_text.append(i)
+        return ' '.join(clean_text)
+    
+    def get_blog_text(self,url):
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        nurl = 'https://blog.naver.com'+soup.select_one('iframe')['src']
+        # nurl에서 %3을 ?로 바꾸어주어야 함
+        nurl = nurl.replace('%3F', '?')
+        response = requests.get(nurl)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        #soup에서 p태그만 추출
+        text=soup.select('span.se-fs-.se-ff-nanumgothic')
+        if text == []:
+            text=soup.select('span.se-fs-.se-ff-')
+        if text == []:
+            text=soup.select('span.se-fs-.se-ff-nanumbarungothic')
+        if text == []:
+            text=soup.select('se-fs-fs13 se-ff-nanummyeongjo')
+        return self.del_tag(text)
 
