@@ -2,6 +2,7 @@ import sys
 import array
 import time
 import os
+import json
 from dotenv import load_dotenv
 
 import oracledb
@@ -58,6 +59,15 @@ class Database:
         docs = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=200).create_documents(contents)
         return docs
 
+    def make_docs(self, file_path):
+        with open (file_path, 'rt') as file:
+            contents = json.load(file)
+
+        # print(contents)
+        descriptions = [d['description'] for d in contents if d is not None and d['description'] is not None]
+        docs = " ".join(descriptions)
+
+        return RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=300).create_documents(docs)
 
     def load_embedding(self, docs = "", table_name = "sample_docs2"):
         self.knowledge_base = OracleVS.from_documents(docs, self.embeddings, client=self.con, 
@@ -91,11 +101,12 @@ class Database:
         )
     
 
-# if __name__ == "__main__":
-#     database = Database()
-#     table_name = "sample_docs2"
-#     # docs = database.make_docs_from_path("./sample_docs.txt")
-#     # database.load_embedding(docs, table_name)
+if __name__ == "__main__":
+    database = Database()
+    table_name = "blog"
+    docs = database.make_docs("./jeonju_blog.json")
+    # docs = database.make_docs_from_path("./sample_docs.txt")
+    database.load_embedding(docs, table_name)
 
 #     database.set_vector_store(table_name)
 
