@@ -43,7 +43,7 @@ class Database:
             docs,
             self.embeddings,
             client=self.con, 
-            table_name="text_embeddings2", 
+            table_name="sample_docs2", 
             distance_strategy=DistanceStrategy.DOT_PRODUCT
         )
         return text_splitter
@@ -51,20 +51,20 @@ class Database:
     def make_docs_from_path(self, file_path = "./sample_docs.txt"):
         with open (file_path, 'rt') as myfile:
             contents = myfile.read()
-        docs = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=400).create_documents([contents])
+        docs = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=200).create_documents([contents])
         return docs
     
     def make_docs_from_list(self, contents):
-        docs = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=400).create_documents(contents)
+        docs = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=200).create_documents(contents)
         return docs
 
 
-    def load_embedding(self, docs = "", table_name = "text_embeddings"):
+    def load_embedding(self, docs = "", table_name = "sample_docs2"):
         self.knowledge_base = OracleVS.from_documents(docs, self.embeddings, client=self.con, 
                                                 table_name=table_name, 
                                                 distance_strategy=DistanceStrategy.DOT_PRODUCT)
     
-    def set_vector_store(self, table_name = "text_embeddings"):
+    def set_vector_store(self, table_name = "sample_docs2"):
         self.vector_store = OracleVS(client=self.con, 
                         embedding_function=self.embeddings, 
                         table_name=table_name, 
@@ -91,16 +91,16 @@ class Database:
         )
     
 
-if __name__ == "__main__":
-    database = Database()
-    table_name = "sample_docs2"
-    # docs = database.make_docs_from_path("./sample_docs.txt")
-    # database.load_embedding(docs, table_name)
+# if __name__ == "__main__":
+#     database = Database()
+#     table_name = "sample_docs2"
+#     # docs = database.make_docs_from_path("./sample_docs.txt")
+#     # database.load_embedding(docs, table_name)
 
-    database.set_vector_store(table_name)
+#     database.set_vector_store(table_name)
 
-    question = "부산에 가면"
-    result_chunks = database.get_chunks(question)
+#     question = "부산일까 서울일까?"
+#     result_chunks = database.get_chunks(question)
     
-    print(result_chunks)
+#     print(result_chunks)
 
